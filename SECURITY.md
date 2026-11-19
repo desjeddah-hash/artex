@@ -14,7 +14,7 @@ Notes:
 
 **Do not open a public issue for a security vulnerability.**
 
-Sign in to GitHub and use the [private vulnerability report form](https://github.com/BaaRai/ARTEX/security/advisories/new). You can also reach it from the repository's **Security and quality** tab under **Advisories** â **Report a vulnerability**. This is the only reporting channel.
+Sign in to GitHub and use the [private vulnerability report form](https://github.com/BaaRai/ARTEX/security/advisories/new). You can also reach it from the repository's **Security and quality** tab under **Advisories** → **Report a vulnerability**. This is the only reporting channel.
 
 Please include:
 - A description of the vulnerability and its expected impact.
@@ -59,9 +59,9 @@ This is an open-source project maintained on a best-effort basis. We aim to ackn
 
 We will explain the reason, for example:
 - It is not a security vulnerability but intended behavior.
-- It is outside ARTEXâs scope (e.g., an issue in an LLM provider, PostgreSQL, Docker, or a browser).
+- It is outside ARTEX’s scope (e.g., an issue in an LLM provider, PostgreSQL, Docker, or a browser).
 - There is insufficient information to reproduce it.
-- The report only states that âthe tool can be misusedâ without identifying a specific technical flaw in ARTEX.
+- The report only states that “the tool can be misused” without identifying a specific technical flaw in ARTEX.
 
 Where appropriate, we may convert the report into a public hardening issue or feature request.
 
@@ -73,7 +73,7 @@ The following are generally **not** considered ARTEX security vulnerabilities:
 - Large-scale DoS/DDoS or resource-exhaustion attacks.
 - Social engineering targeting maintainers or users.
 - Issues that exist only in third-party dependencies and do not affect ARTEX.
-- Reports that âARTEX can be used to attack systemsâ when the user has valid authorization â this is the nature of a penetration-testing tool, not a vulnerability.
+- Reports that “ARTEX can be used to attack systems” when the user has valid authorization — this is the nature of a penetration-testing tool, not a vulnerability.
 - Missing headers or hardening configuration without a concrete security impact.
 
 ## Safe Harbor

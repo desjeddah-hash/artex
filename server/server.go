@@ -93,24 +93,24 @@ type Server struct {
 	// chatBusy guards the per-task main-agent run: the chat handler launches the
 	// agent on the server's background ctx (not the request ctx) and returns
 	// immediately, so a page reload / proxy timeout can't abort a live run. This
-	// map serializes turns per task â one main-agent run at a time per task, so
+	// map serializes turns per task — one main-agent run at a time per task, so
 	// concurrent messages don't corrupt the shared exp<id>-main transcript.
 	chatMu   sync.Mutex
 	chatBusy map[string]bool
 	// chatCancel holds the cancel func for each in-flight conversation run (keyed by
 	// convBusyKey), so a manual stop can abort JUST that session's agent run. Set/
 	// cleared alongside chatBusy under chatMu. Aborting a run does NOT touch the P3
-	// trigger queue â the drain goroutine simply proceeds to the next queued fire.
+	// trigger queue — the drain goroutine simply proceeds to the next queued fire.
 	chatCancel map[string]context.CancelCauseFunc
 
 	// triggerQ buffers P3 trigger fires PER AGENT. A per-agent "pump" launches runs up
-	// to a concurrency limit derived from the agent's policy: serial â limit 1 (+ optional
-	// merge); parallel â limit = trigger_max_parallel (0=â), no merge. triggerActive
+	// to a concurrency limit derived from the agent's policy: serial → limit 1 (+ optional
+	// merge); parallel → limit = trigger_max_parallel (0=∞), no merge. triggerActive
 	// counts in-flight runs per agent (replaces a boolean drain flag); a run's
 	// completion decrements it and re-pumps to fill the freed slot. triggerCfg caches
 	// the agent's last-read policy so the pump never queries the DB while holding queueMu.
 	// Distinct agents always run concurrently. Queue is in-memory (matches chatBusy); a
-	// restart drops pending fires â the scheduler re-fires from watermarks next tick.
+	// restart drops pending fires — the scheduler re-fires from watermarks next tick.
 	queueMu       sync.Mutex
 	triggerQ      map[string][]triggeredRun
 	triggerActive map[string]int
@@ -123,7 +123,7 @@ type Server struct {
 	profChatAgents map[int64]*agent.ChatAgent // per-profile ChatAgent cache (chat page)
 
 	// provByProfile caches ONE provider per LLM profile id so every agent bound or
-	// pinned to the same profile shares a single provider instance â hence one rate
+	// pinned to the same profile shares a single provider instance — hence one rate
 	// limiter. applyLLM also resolves the persisted global-active profile through this
 	// cache, so global fallback and task chains do not accidentally double the
 	// configured request rate. Cleared on profile edits, then repopulated by active reapply.
@@ -207,14 +207,14 @@ func New(ctx context.Context, m *Manager, skillDir string, dataDir string, keyDi
 		return b.pl, b.wk
 	})
 	// Global readiness (Ready()/llm_configured): a global active LLM provider is
-	// installed. Task-level runnability is separate (ReadyFor â the resolver above).
+	// installed. Task-level runnability is separate (ReadyFor → the resolver above).
 	s.engine.SetReadiness(func() bool {
 		s.cfgMu.Lock()
 		defer s.cfgMu.Unlock()
 		return s.llmOn
 	})
-	// Wire DB-stored prompt templates into the agents (new design plan Â§3.3 / Â§5a). With no
-	// override row, agents keep their built-in defaults â behavior is unchanged.
+	// Wire DB-stored prompt templates into the agents (new design plan §3.3 / §5a). With no
+	// override row, agents keep their built-in defaults — behavior is unchanged.
 	if m.pg != nil {
 		agent.SetPromptOverride(func(key string) (string, bool) {
 			a, err := m.pg.GetAgentByKey(key)
@@ -227,7 +227,7 @@ func New(ctx context.Context, m *Manager, skillDir string, dataDir string, keyDi
 			}
 			return t, true
 		})
-		// Wire DB-stored wrap-up (settlement) prompts. Empty column â built-in default.
+		// Wire DB-stored wrap-up (settlement) prompts. Empty column → built-in default.
 		agent.SetWrapupOverride(func(key string) (string, bool) {
 			a, err := m.pg.GetAgentByKey(key)
 			if err != nil || a == nil || a.WrapupPrompt == "" {
@@ -235,7 +235,7 @@ func New(ctx context.Context, m *Manager, skillDir string, dataDir string, keyDi
 			}
 			return a.WrapupPrompt, true
 		})
-		// Wire DB-stored wrap-up turn budgets. 0 / missing â built-in per-agent default.
+		// Wire DB-stored wrap-up turn budgets. 0 / missing → built-in per-agent default.
 		agent.SetWrapupMaxTurnsOverride(func(key string) (int, bool) {
 			a, err := m.pg.GetAgentByKey(key)
 			if err != nil || a == nil || a.WrapupMaxTurns <= 0 {
@@ -243,7 +243,7 @@ func New(ctx context.Context, m *Manager, skillDir string, dataDir string, keyDi
 			}
 			return a.WrapupMaxTurns, true
 		})
-		// Wire DB-stored TASK-TIMEOUT wrap-up prompt/turns (worker/planner). Empty/0 â default.
+		// Wire DB-stored TASK-TIMEOUT wrap-up prompt/turns (worker/planner). Empty/0 → default.
 		agent.SetWrapupTaskTimeoutOverride(func(key string) (string, bool) {
 			a, err := m.pg.GetAgentByKey(key)
 			if err != nil || a == nil || a.TaskTimeoutWrapupPrompt == "" {
@@ -271,25 +271,25 @@ func New(ctx context.Context, m *Manager, skillDir string, dataDir string, keyDi
 		s.seedPythonInterpreter()     // custom script tool: detect the python interpreter at boot and store it (only when empty)
 		go newScheduler(s).Run(s.ctx) // P3 trigger scheduling (scheduled/finding/goal events), custom agents only
 		// Vulnerability IM push delivery engine. Sits beside the Scheduler but independent: push latency demands (3s)
-		// differ from the triggers' business cadence, and neither's failures drag the other down â a stuck push must not affect agent triggers.
+		// differ from the triggers' business cadence, and neither's failures drag the other down — a stuck push must not affect agent triggers.
 		go newNotifier(s).Run(s.ctx)
 		logSink.SetDB(ctx, m.pg) // restore last 100 log rows and enable async persistence
 	}
 	// precedence: persisted DB config > env.
 	if cfg, ok := s.loadLLMConfig(); ok {
 		if err := s.applyLLM(cfg); err != nil {
-			log.Printf("[engine] saved LLM config init failed â engine idle: %v", err)
+			log.Printf("[engine] saved LLM config init failed — engine idle: %v", err)
 		} else {
 			log.Printf("[engine] LLM configured from DB: %s / %s", cfg.Provider(), cfg.Model)
 		}
 	} else if cfg, ok := agent.FromEnv(); ok {
 		if err := s.applyLLM(cfg); err != nil {
-			log.Printf("[engine] env provider init failed â engine idle: %v", err)
+			log.Printf("[engine] env provider init failed — engine idle: %v", err)
 		} else {
 			log.Printf("[engine] LLM configured from env: %s / %s", cfg.Provider(), cfg.Model)
 		}
 	} else {
-		log.Printf("[engine] no LLM provider configured â engine idle until set via /api/llm or env")
+		log.Printf("[engine] no LLM provider configured — engine idle until set via /api/llm or env")
 	}
 	// Both env readers have now run (NewManager for the DSN, FromEnv above for the
 	// keys). Drop the secrets before anything below can spawn a child process:
@@ -332,7 +332,7 @@ func (s *Server) restoreTaskRuntimes() {
 			s.engine.Pause(t.ID, agent.AbortPausedOnReload)
 		}
 		// Task-level timeout: start a deadline coordinator for every non-terminal task with a timeout, independent of the planner/worker
-		// loop â inactive tasks also get wrapped up on time after a restart (an already-passed deadline runs the wrap-up sequence immediately).
+		// loop — inactive tasks also get wrapped up on time after a restart (an already-passed deadline runs the wrap-up sequence immediately).
 		if !isTerminalStatus(lifecycle.Status) {
 			s.engine.startDeadlineCoordinator(s.ctx, t)
 		}
@@ -431,7 +431,7 @@ func (s *Server) saveLLMConfig(cfg agent.Config) error {
 	// (anthropic / openai / openai-responses), matching the DB CHECK constraint.
 	format := cfg.Provider()
 	var id int64
-	// This legacy endpoint's request body carries no failover/streaming/output-cap params, so the values already stored in the DB are passed back untouched â
+	// This legacy endpoint's request body carries no failover/streaming/output-cap params, so the values already stored in the DB are passed back untouched —
 	// otherwise every save would silently reset the profile's priority, pool_exclude, streaming and output caps
 	// (max_tokens / max_tokens_field) to zero values.
 	var priority int
@@ -537,7 +537,7 @@ func (s *Server) applyLLM(cfg agent.Config) error {
 	s.llmDirect = prov
 	s.cfgMu.Unlock()
 	// LLM failover pool (default off): wraps the active profile in a failover chain and switches to the next one automatically when the current is unavailable.
-	// It only affects this "global active profile" path â agent-bound / task-pinned ones go through providerForProfile,
+	// It only affects this "global active profile" path — agent-bound / task-pinned ones go through providerForProfile,
 	// still owning that profile exclusively by default (see poolForBinding). When off or with no alternatives, the original provider is returned and behavior is unchanged.
 	if act, err := s.m.pg.ActiveProfile(); err == nil && act != nil {
 		prov = s.poolForActive(act.ID, prov, cfg)
@@ -548,12 +548,12 @@ func (s *Server) applyLLM(cfg agent.Config) error {
 
 	tx := transcript.NewStore(filepath.Join(s.m.dir, "transcripts"))
 	win := cfg.CompactionWindow()
-	// chat stays the GLOBAL fallback since one ChatAgent serves many agent keys â its
-	// per-agent binding is resolved at Chat time (runConversationSync â
+	// chat stays the GLOBAL fallback since one ChatAgent serves many agent keys — its
+	// per-agent binding is resolved at Chat time (runConversationSync →
 	// chatAgentForProfile). The main-agent has no global instance: each task builds its
 	// own via agentsForTask (task-routed), so nothing is constructed for it here.
 	s.cfgMu.Lock()
-	// chat agent serves MANY custom agents by key â it holds the GLOBAL opts
+	// chat agent serves MANY custom agents by key → it holds the GLOBAL opts
 	// (backend/key) and gates Enabled per-conversation-agent at Chat time. Conversations always use the active profile.
 	s.chatAgent = agent.NewChatAgent(prov, cfg.Model, s.m.dir, tx, win) // chat page runner
 	s.chatAgent.SetProxy(s.m.ProxyAddr(), s.m.ProxyCACert())
@@ -601,7 +601,7 @@ func (s *Server) loadProfileConfig(id int64) (agent.Config, bool) {
 }
 
 // effectiveProfileForAgent resolves the LLM profile id an agent should run on, by
-// precedence: agent binding (agents.llm_profile_id) â pin (task/conversation) â nil
+// precedence: agent binding (agents.llm_profile_id) → pin (task/conversation) → nil
 // (caller falls back to the global active profile). A binding to a deleted profile
 // can't happen (FK ON DELETE SET NULL); an otherwise-invalid one is dropped downstream
 // by loadProfileConfig, letting the caller fall back.
@@ -617,7 +617,7 @@ func (s *Server) effectiveProfileForAgent(agentKey string, pinID *int64) *int64 
 // resolveChatAgent picks the ChatAgent for one conversation: the agent's own
 // binding or this conversation's chosen profile first, the global active config
 // only as a fallback. Both the send precheck and the background runner MUST use
-// this â resolving differently in the two paths is how a conversation that had
+// this — resolving differently in the two paths is how a conversation that had
 // picked a valid profile still got rejected with "LLM not configured" when no global
 // config was active.
 func (s *Server) resolveChatAgent(c *db.Conversation) *agent.ChatAgent {
@@ -632,22 +632,22 @@ func (s *Server) resolveChatAgent(c *db.Conversation) *agent.ChatAgent {
 
 // chatUnavailableReason explains why no ChatAgent could be resolved, so the user
 // knows whether to add a config, activate one, or pick one for this conversation
-// â rather than a flat "not configured" that hides which of those it is.
+// — rather than a flat "not configured" that hides which of those it is.
 func (s *Server) chatUnavailableReason() string {
 	if s.m.pg != nil {
 		if profiles, err := s.m.pg.ListProfiles(); err == nil && len(profiles) == 0 {
-			return "No LLM configured yet: go to System â LLM Profiles to add one"
+			return "No LLM configured yet: go to System → LLM Profiles to add one"
 		}
 		if active, err := s.m.pg.ActiveProfile(); err == nil && active == nil {
-			return "No active LLM profile: activate one under System â LLM Profiles, or pick one for this conversation"
+			return "No active LLM profile: activate one under System → LLM Profiles, or pick one for this conversation"
 		}
 	}
-	return "LLM not ready for chat: check that System â LLM Profiles has a usable, activated profile"
+	return "LLM not ready for chat: check that System → LLM Profiles has a usable, activated profile"
 }
 
 // providerForProfile returns a cached provider+cfg for a profile id, so every agent
 // bound/pinned to the same profile shares one provider instance (one rate limiter).
-// ok=false when the profile is missing/invalid â caller falls back to the global pair.
+// ok=false when the profile is missing/invalid → caller falls back to the global pair.
 func (s *Server) providerForProfile(id int64) (llm.Provider, agent.Config, bool) {
 	s.provCacheMu.Lock()
 	if e := s.provByProfile[id]; e != nil {
@@ -675,7 +675,7 @@ func (s *Server) providerForProfile(id int64) (llm.Provider, agent.Config, bool)
 		s.provCacheMu.Unlock()
 		return s.providerForProfile(id)
 	}
-	if e := s.provByProfile[id]; e != nil { // lost the race â keep the winner
+	if e := s.provByProfile[id]; e != nil { // lost the race → keep the winner
 		prov, cfg = e.prov, e.cfg
 	} else {
 		s.provByProfile[id] = &provEntry{prov: prov, cfg: cfg}
@@ -707,7 +707,7 @@ func (s *Server) chatAgentForProfile(id int64) *agent.ChatAgent {
 	ca.SetMaxTokens(maxTokensResolver(cfg))
 	ca.SetNoaEnabled(s.m.NoaCompactionEnabled) // experimental: noa context compaction (read per run)
 	s.profMu.Lock()
-	if ex := s.profChatAgents[id]; ex != nil { // lost the race â keep the winner
+	if ex := s.profChatAgents[id]; ex != nil { // lost the race → keep the winner
 		ca = ex
 	} else {
 		s.profChatAgents[id] = ca
@@ -717,7 +717,7 @@ func (s *Server) chatAgentForProfile(id int64) *agent.ChatAgent {
 }
 
 // invalidateProfileAgents drops the per-profile ChatAgent + provider caches so a profile
-// save/activate/delete â or an agent's binding change â rebuilds pinned tasks' agents
+// save/activate/delete — or an agent's binding change — rebuilds pinned tasks' agents
 // (and re-resolves each agent's bound model) on their next round.
 func (s *Server) invalidateProfileAgents() {
 	s.profMu.Lock()
@@ -740,7 +740,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	s.registerSideRoutes(mux)
 
-	// Auth routes â exempt from JWT check (handled in requireAuth)
+	// Auth routes — exempt from JWT check (handled in requireAuth)
 	mux.HandleFunc("GET /api/auth/status", s.authStatus)
 	mux.HandleFunc("POST /api/auth/init", s.authInit)
 	mux.HandleFunc("POST /api/auth/login", s.authLogin)
@@ -968,7 +968,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/mcp/{id}", s.pgDeleteMCP)
 	mux.HandleFunc("GET /api/mcp/{id}/tools", s.pgMCPTools)
 	mux.HandleFunc("POST /api/mcp/{id}/refresh", s.pgRefreshMCP)
-	// asset sync â ScopeSentry data source
+	// asset sync — ScopeSentry data source
 	mux.HandleFunc("GET /api/sync/scopesentry/status", s.syncSSStatus)
 	mux.HandleFunc("POST /api/sync/scopesentry/datasource", s.syncSSDatasource)
 	mux.HandleFunc("GET /api/sync/scopesentry/projects", s.syncSSProjects)
@@ -1045,7 +1045,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/intercept/judge/usage", s.interceptJudgeUsage) // cumulative token usage of fallback approval
 
 	// /api/* goes through CORS + JWT; everything else is served by the embedded
-	// frontend (public â auth is enforced client-side and on the API). With the
+	// frontend (public — auth is enforced client-side and on the API). With the
 	// no-embed build the webui handler just 404s (run `next dev` separately).
 	api := cors(s.requireAuth(mux))
 	root := http.NewServeMux()
@@ -1172,7 +1172,7 @@ func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
 	list := s.m.List()
 	metrics, err := s.m.PG().TaskListMetricsAll()
 	if err != nil {
-		log.Printf("[tasks] list metrics query failed â metrics zeroed: %v", err)
+		log.Printf("[tasks] list metrics query failed — metrics zeroed: %v", err)
 	}
 	archiveBlockers, _ := s.m.PG().TaskArchiveBlockers()
 	dtos := make([]TaskDTO, 0, len(list))
@@ -1243,7 +1243,7 @@ func (s *Server) setActive(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 404, "task not found")
 		return
 	}
-	// resume the engine for the opened task (idempotent â no-op if already running).
+	// resume the engine for the opened task (idempotent — no-op if already running).
 	// Queued tasks: only set active for viewing; the engine is not started (the concurrency cap holds, reconcile fills freed slots).
 	if t, ok := s.m.Task(req.ID); ok && !t.lifecycleSnapshot().Queued {
 		s.engine.Run(s.ctx, t)
@@ -1321,7 +1321,7 @@ func (s *Server) controlIntent(w http.ResponseWriter, r *http.Request) {
 
 // rerunIntent re-runs an intent that did not succeed (blocked/exhausted/stopped): it is set back to open, the worker
 // re-claims it and runs from scratch (facts/findings/assets already written back to the graph are kept); a terminal/paused task is revived as a side effect.
-// Powers "click continue on an errored work" â one-click retry after network/LLM jitter caused a blocked state.
+// Powers "click continue on an errored work" — one-click retry after network/LLM jitter caused a blocked state.
 func restoreRerunIntent(t *Task, before *db.Node) error {
 	if t == nil || before == nil {
 		return fmt.Errorf("missing intent rollback snapshot")
@@ -1584,7 +1584,7 @@ func (s *Server) testLLM(w http.ResponseWriter, r *http.Request) {
 	}
 	// The custom session header name follows that profile too: when non-empty, the test request also sends it (value is a one-off random session id,
 	// see TestConnection). Endpoints like opencode zen that mandate x-opencode-session return
-	// 400 without it, so the test path must send it too â otherwise "chat works, test 400s".
+	// 400 without it, so the test path must send it too — otherwise "chat works, test 400s".
 	cfg.SessionHeaderKey = req.SessionHeaderKey
 	// The custom session header name follows that profile regardless of format:
 	// when the form omits it, the stored profile's value is the fallback.
@@ -1677,7 +1677,7 @@ func truncateReply(s string) string {
 	if len(r) <= max {
 		return s
 	}
-	return string(r[:max]) + "â¦"
+	return string(r[:max]) + "…"
 }
 
 type createTaskReq struct {
@@ -1789,7 +1789,7 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, err.Error())
 		return
 	}
-	log.Printf("[task] created task #%s Â«%sÂ» goal: %s", t.ID, req.Description, req.Goal)
+	log.Printf("[task] created task #%s «%s» goal: %s", t.ID, req.Description, req.Goal)
 	// Task credentials (#3): rows land after the task row commits; a bad entry
 	// fails the whole request so the UI never shows a half-configured task.
 	if len(req.Credentials) > 0 {
@@ -1805,7 +1805,7 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Shared post-create flow (seed + seed intent + background goal decomposition + engine.Run), reusing the same launchTask as spawn_task.
-	// launchTask is async internally and never blocks the UI â goal decomposition visibly proceeds in the background.
+	// launchTask is async internally and never blocks the UI — goal decomposition visibly proceeds in the background.
 	s.launchTask(t, req.Description+" "+req.Goal, req.SeedFirstIntent != nil && *req.SeedFirstIntent)
 	writeJSON(w, 201, taskDTO(t, s.resolvedTaskStatus(t)))
 }
@@ -1982,13 +1982,13 @@ func (s *Server) seed(t *Task, text string) {
 	log.Printf("[seed] task %s: target site %s", t.ID, u)
 	// No Notify here: whether the first round fires is decided solely by engine.Run's HasActiveIntent (seed-intent tasks
 	// skip the first round). seed runs before Run; a Notify here would buffer into the channel and be consumed when plannerLoop
-	// starts, bypassing Run's gate â seed tasks would wrongly fire a first round.
+	// starts, bypassing Run's gate → seed tasks would wrongly fire a first round.
 }
 
 // seedFirstIntent writes ONE open intent (summary = description + goal) into the task's
 // frontier at creation, so a worker can claim and run it immediately without first
 // waiting a planner round. Mirrors a planner top-level intent: it links from the
-// origin fact (RelDerivedFrom) so it still traces back to a fact node. Best-effort â
+// origin fact (RelDerivedFrom) so it still traces back to a fact node. Best-effort —
 // a failure just falls back to the normal planner-driven flow.
 func (s *Server) seedFirstIntent(t *Task) {
 	summary := fmt.Sprintf("Complete the task goal: %s (task: %s)", t.Goal, t.Description)
@@ -2012,7 +2012,7 @@ func (s *Server) getTask(w http.ResponseWriter, r *http.Request) {
 	dto := taskDTO(t, s.resolvedTaskStatus(t))
 	metrics, err := s.m.PG().TaskListMetrics(t.ExpID)
 	if err != nil {
-		log.Printf("[tasks] detail metrics query failed for %s â metrics zeroed: %v", t.ID, err)
+		log.Printf("[tasks] detail metrics query failed for %s — metrics zeroed: %v", t.ID, err)
 	}
 	s.applyTaskMetrics(&dto, t, metrics)
 	// Best effort: only this task's blocker, not the whole relation table.
@@ -2034,7 +2034,7 @@ func (s *Server) taskCoverage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 503, "asset store not enabled")
 		return
 	}
-	// Asset coverage off â short-circuits {enabled:false}; the frontend hides the coverage card/progress accordingly.
+	// Asset coverage off → short-circuits {enabled:false}; the frontend hides the coverage card/progress accordingly.
 	if !t.CoverageEnabled {
 		writeJSON(w, 200, &db.Coverage{Enabled: false, ByType: []db.CoverageByType{}})
 		return
@@ -2078,7 +2078,7 @@ func (s *Server) taskCoverageGraph(w http.ResponseWriter, r *http.Request) {
 }
 
 // taskAssetRefs returns the intents / facts / findings in this task anchored to a
-// given asset id â powers the coverage-graph node drawer's "linked intents / linked facts".
+// given asset id — powers the coverage-graph node drawer's "linked intents / linked facts".
 func (s *Server) taskAssetRefs(w http.ResponseWriter, r *http.Request) {
 	t, ok := s.m.Task(r.PathValue("id"))
 	if !ok {
@@ -2202,12 +2202,12 @@ func (s *Server) frontier(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) findings(w http.ResponseWriter, r *http.Request) {
-	// No task param â the global "Findings" page: read from the standalone findings table (findings survive task deletion).
-	// With a task param â that task only (task overview/Findings tab), read from exploration_nodes (nodes live as long as the task does).
+	// No task param → the global "Findings" page: read from the standalone findings table (findings survive task deletion).
+	// With a task param → that task only (task overview/Findings tab), read from exploration_nodes (nodes live as long as the task does).
 	q := r.URL.Query()
 	taskParam := q.Get("task")
 	if taskParam == "" {
-		// With page/limit â server-side pagination {items,total,...}; without â a bare array (for dashboard aggregation,
+		// With page/limit → server-side pagination {items,total,...}; without → a bare array (for dashboard aggregation,
 		// same compat policy as the intents endpoint). Filtering/sorting is pushed down to SQL uniformly.
 		if q.Get("page") == "" && q.Get("limit") == "" {
 			fs, _ := s.m.pg.ListFindings(500)
@@ -2311,7 +2311,7 @@ func (s *Server) resolveFindingAssets(fs []*db.DBFinding) map[int64]*db.Asset {
 	return s.resolveAssetIDs(ids)
 }
 
-// resolveAssetIDs de-dupes ids and loads their asset rows into an idâasset map.
+// resolveAssetIDs de-dupes ids and loads their asset rows into an id→asset map.
 func (s *Server) resolveAssetIDs(ids []int64) map[int64]*db.Asset {
 	assets := map[int64]*db.Asset{}
 	seen := map[int64]bool{}
@@ -2506,7 +2506,7 @@ func findingProvenanceInTask(contextTask *Task, findingTaskID *int64) (sourceTas
 }
 
 // findingLineage returns the exploration sub-DAG from the task root to this
-// finding's node â the finding node + all its ancestors + edges among them â so
+// finding's node — the finding node + all its ancestors + edges among them — so
 // the detail page can show "how this finding was reached". Empty {nodes,edges}
 // when the finding has no node/task (e.g. the originating task was deleted).
 func (s *Server) findingLineage(w http.ResponseWriter, r *http.Request) {
@@ -2585,7 +2585,7 @@ func (s *Server) patchFinding(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !notified && from != *body.Status {
-			log.Printf("[notify] status-change event not registered finding=%d %sâ%s (status was updated)", id, from, *body.Status)
+			log.Printf("[notify] status-change event not registered finding=%d %s→%s (status was updated)", id, from, *body.Status)
 		}
 	}
 	if body.ReportState != nil {
@@ -2780,7 +2780,7 @@ func (s *Server) intents(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	limit := min(atoiDefault(q.Get("limit"), 300), 500)
-	// No paging params â preserve the legacy bare-array response so existing callers
+	// No paging params → preserve the legacy bare-array response so existing callers
 	// (and the poll) keep working unchanged.
 	if q.Get("before") == "" && q.Get("page") == "" {
 		in, err := t.Store.ListByKind(db.KindIntent, limit)
@@ -2792,7 +2792,7 @@ func (s *Server) intents(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, taskNodeDTOs(in))
 		return
 	}
-	// Paged form: ?before=<id> (or ?page as a marker) â {items, has_more} so the
+	// Paged form: ?before=<id> (or ?page as a marker) → {items, has_more} so the
 	// worker session list can reach past the old fixed 300 boundary on scroll. It
 	// also includes immutable intent results from directly related tasks; those
 	// rows never participate in this task's frontier or claim path.
@@ -2937,7 +2937,7 @@ func (s *Server) explorationGraph(w http.ResponseWriter, r *http.Request) {
 
 // explorationNodes serves the broadcast board: this task's own exploration nodes as a
 // paged time series (newest first unless ?order=asc), filterable by kind/state
-// and a payload substring. Inherited nodes are deliberately out of scope â the
+// and a payload substring. Inherited nodes are deliberately out of scope — the
 // board reports what this task is doing right now, and paging across the source
 // tasks' stores would make the cursor meaningless.
 // Response also carries the edges touching the page plus the neighbour nodes
@@ -3011,7 +3011,7 @@ func (s *Server) explorationNodes(w http.ResponseWriter, r *http.Request) {
 
 // nodeAnchoredAssets resolves the exploration_anchors of the given nodes into
 // display-ready asset labels, keyed by node id. Anchors are provenance decoration
-// for the broadcast board â a failure here must not cost the caller its page, so errors are
+// for the broadcast board — a failure here must not cost the caller its page, so errors are
 // logged and degrade to "no assets".
 func (s *Server) nodeAnchoredAssets(t *Task, nodeIDs []int64) map[string][]FindingAssetDTO {
 	out := map[string][]FindingAssetDTO{}
@@ -3137,7 +3137,7 @@ func activitySessionStore(t *Task, filter db.ActivitySessionFilter) (*db.Explora
 
 // activityHistory serves one reverse-paginated page of a session's activity history.
 // The latest page (no ?before) opens a session; ?before=<id> pulls the older page on
-// scroll-up. snapshot_cursor is the TASK-level max id at query time â the client uses
+// scroll-up. snapshot_cursor is the TASK-level max id at query time — the client uses
 // it to open the single task SSE at since=snapshot_cursor so history (id<=cursor) and
 // the live tail (id>cursor) meet with no gap and no overlap.
 func (s *Server) activityHistory(w http.ResponseWriter, r *http.Request) {
@@ -3153,7 +3153,7 @@ func (s *Server) activityHistory(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, "bad session")
 		return
 	}
-	if filter.Main && filter.MainSeg == nil { // bare "main" â the current segment
+	if filter.Main && filter.MainSeg == nil { // bare "main" → the current segment
 		seg, err := t.Store.CurrentMainSeg()
 		if err != nil {
 			writeErr(w, 500, err.Error())
@@ -3213,7 +3213,7 @@ func (s *Server) activityHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 // tokenStats returns per-worker token usage (input/output/cache read/write) for a
-// task â main agent, planner, and each work#N.
+// task — main agent, planner, and each work#N.
 func (s *Server) tokenStats(w http.ResponseWriter, r *http.Request) {
 	t := s.m.ResolveTask(r.URL.Query().Get("task"))
 	if t == nil {
@@ -3262,7 +3262,7 @@ func (s *Server) tokenDailyStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // conversationTokens returns per-conversation token summaries so the dashboard can
-// merge chat (conversation) usage into its per-profile / daily token stats â which
+// merge chat (conversation) usage into its per-profile / daily token stats — which
 // otherwise count only task (exploration) usage.
 func (s *Server) conversationTokens(w http.ResponseWriter, r *http.Request) {
 	if s.m.pg == nil {
@@ -3416,7 +3416,7 @@ func (s *Server) streamActivity(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Cursor precedence: the browser's automatic reconnect sends Last-Event-ID (the
-	// last id it received) â trust it over the query so an auto-reconnect resumes
+	// last id it received) — trust it over the query so an auto-reconnect resumes
 	// exactly where it dropped. A fresh/manual connect has no header and passes
 	// since=<snapshot_cursor> from the history page instead.
 	since := int64(atoiDefault(r.URL.Query().Get("since"), 0))
@@ -3445,10 +3445,10 @@ func (s *Server) streamActivity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Compensate the DB backlog after `since` in batches until caught up. This is the
-	// gap between the history snapshot and the live tail â NOT the first-page history
+	// gap between the history snapshot and the live tail — NOT the first-page history
 	// (that's the /activity/history endpoint). A long task can have far more than one
 	// batch, so loop instead of a single fixed read; on a query error log it and close
-	// so the client reconnects and retries from its last id (broadcast is lossy â the
+	// so the client reconnects and retries from its last id (broadcast is lossy — the
 	// DB is the source of truth). The Broadcaster keeps buffering live events meanwhile;
 	// the id<=since skip below drops any that this replay already covered.
 	const replayBatch = 500
@@ -3560,7 +3560,7 @@ func (s *Server) getTraffic(w http.ResponseWriter, r *http.Request) {
 }
 
 // getTrafficHosts returns distinct recorded hosts with counts, for the page's
-// target picker (pick a host â filter the list, then delete it).
+// target picker (pick a host → filter the list, then delete it).
 func (s *Server) getTrafficHosts(w http.ResponseWriter, r *http.Request) {
 	tr := s.m.Traffic()
 	if tr == nil {
@@ -3578,7 +3578,7 @@ func (s *Server) getTrafficHosts(w http.ResponseWriter, r *http.Request) {
 // deleteTraffic removes recorded traffic for every host containing the query's
 // host substring (the page's host filter is substring-based, so what you
 // filtered is what gets deleted): index rows + each host's file tree, then
-// garbage-collects blobs no remaining exchange references. Empty host â 400.
+// garbage-collects blobs no remaining exchange references. Empty host → 400.
 // Returns the number of exchanges deleted.
 func (s *Server) deleteTraffic(w http.ResponseWriter, r *http.Request) {
 	tr := s.m.Traffic()
@@ -3600,7 +3600,7 @@ func (s *Server) deleteTraffic(w http.ResponseWriter, r *http.Request) {
 }
 
 // deleteTrafficHosts removes traffic for a set of EXACT hosts (JSON body
-// {"hosts": [...]}) â the batch path for the page's multi-select delete. Exact
+// {"hosts": [...]}) — the batch path for the page's multi-select delete. Exact
 // match, so picking "api.example.com" never sweeps "api.example.com.cn".
 // Returns the number of exchanges deleted.
 func (s *Server) deleteTrafficHosts(w http.ResponseWriter, r *http.Request) {
@@ -3635,7 +3635,7 @@ func (s *Server) deleteTrafficHosts(w http.ResponseWriter, r *http.Request) {
 }
 
 // deleteAllTraffic purges every recorded exchange, then compacts the index so
-// the space is actually returned to the filesystem â an emptied index is the one
+// the space is actually returned to the filesystem — an emptied index is the one
 // moment a full rewrite is cheap. Evidence already bound to a finding lives in
 // the evidence store and is deliberately left alone. Returns the number of
 // exchanges deleted and the bytes of index reclaimed.
@@ -3771,8 +3771,8 @@ func (s *Server) replayTraffic(w http.ResponseWriter, r *http.Request) {
 }
 
 // getTrafficBlob streams one oversized body by its sha256. Bodies past the inline
-// threshold are not carried by the exchange endpoint â it returns a preview plus
-// an "@blob sha256:<hash>" pointer â so this is how the UI fetches them whole.
+// threshold are not carried by the exchange endpoint — it returns a preview plus
+// an "@blob sha256:<hash>" pointer — so this is how the UI fetches them whole.
 // Streamed rather than buffered: these are the bodies too large to hold in memory.
 func (s *Server) getTrafficBlob(w http.ResponseWriter, r *http.Request) {
 	tr := s.m.Traffic()
@@ -3889,7 +3889,7 @@ func (s *Server) pgDetectPython(w http.ResponseWriter, r *http.Request) {
 }
 
 // putSettings applies a settings change. Toggling traffic_capture rebuilds the
-// agents (applyLLM) so the new proxy/traffic-tools/prompt state takes hold â when
+// agents (applyLLM) so the new proxy/traffic-tools/prompt state takes hold — when
 // off, agents get no proxy config, no traffic tools, and no proxy prompt content.
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -3897,7 +3897,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		AgentTrafficBinding *bool `json:"agent_traffic_binding"`
 		LLMRecord           *bool `json:"llm_record"` // LLM recording switch (default off); takes effect immediately, no agent rebuild needed
 		// Web search. WebSearchEnabled/Backend toggle the tool + backend; BraveKey/TavilyKey/KeenableKey
-		// are optional â omit (null) to leave a stored key untouched, send "" to clear. The Keenable
+		// are optional — omit (null) to leave a stored key untouched, send "" to clear. The Keenable
 		// key is optional even when its backend is selected: empty uses the keyless public endpoint.
 		WebSearchEnabled *bool   `json:"web_search_enabled"`
 		WebSearchBackend *string `json:"web_search_backend"`
@@ -3912,7 +3912,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		ConcurrencyEnabled *bool `json:"task_concurrency_enabled"`
 		ConcurrencyLimit   *int  `json:"task_concurrency_limit"`
 		// LLM failover pool switch + the "fall back to the pool chain even when a bound profile fails" switch. Both need the
-		// provider chain rebuilt to take effect, via the changed â applyLLM path below.
+		// provider chain rebuilt to take effect, via the changed → applyLLM path below.
 		LLMPoolEnabled      *bool `json:"llm_pool_enabled"`
 		LLMPoolBindFallback *bool `json:"llm_pool_bind_fallback"`
 		// operation-constraint injection scope switches (default both on); take effect immediately (planner/worker read them every round), no agent rebuild needed.
@@ -4045,7 +4045,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 400, err.Error())
 			return
 		}
-		// Reconcile immediately: turning off releases all queued tasks, raising the cap backfills starts â no need to wait for the next tick.
+		// Reconcile immediately: turning off releases all queued tasks, raising the cap backfills starts — no need to wait for the next tick.
 		go s.reconcileConcurrency()
 	}
 	if req.PythonInterp != nil {
@@ -4067,7 +4067,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 500, err.Error())
 			return
 		}
-		changed = true // the provider chain itself changes shape â rebuild
+		changed = true // the provider chain itself changes shape → rebuild
 	}
 	if req.LLMPoolBindFallback != nil {
 		if err := s.m.SetLLMPoolBindFallback(*req.LLMPoolBindFallback); err != nil {
@@ -4078,7 +4078,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.LLMPoolEnabled != nil || req.LLMPoolBindFallback != nil {
 		// Pinned tasks' planner/worker and per-profile chat agents hold providers
-		// built under the OLD switch state â drop them so they pick up the new one.
+		// built under the OLD switch state — drop them so they pick up the new one.
 		s.invalidateProfileAgents()
 	}
 	if req.AgentTrafficBinding != nil {
@@ -4100,7 +4100,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 400, err.Error())
 			return
 		}
-		changed = true // capture-off egress is baked into agents at build time â rebuild
+		changed = true // capture-off egress is baked into agents at build time → rebuild
 	}
 	if req.WebSearchEnabled != nil || req.WebSearchBackend != nil || req.BraveKey != nil || req.TavilyKey != nil || req.KeenableKey != nil || req.WebSearchProxy != nil {
 		// Fill unspecified fields from current state so a partial PUT doesn't reset them.
@@ -4133,7 +4133,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 // testWebSearch runs a real "test" search with the given (or currently saved)
-// backend/proxy/key to verify the config can actually reach a search backend â
+// backend/proxy/key to verify the config can actually reach a search backend —
 // mirroring testLLM. Backend/proxy come from the request (so the form's unsaved
 // edits are tested); empty API keys fall back to stored values so the user need
 // not retype them. Always 200 with {ok, error?, count?, backend?}.
@@ -4145,7 +4145,7 @@ func (s *Server) testWebSearch(w http.ResponseWriter, r *http.Request) {
 		TavilyKey   string `json:"tavily_search_api_key"`
 		KeenableKey string `json:"keenable_search_api_key"`
 	}
-	// Empty body is fine â fall back entirely to the saved config below.
+	// Empty body is fine — fall back entirely to the saved config below.
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
 		writeErr(w, 400, err.Error())
 		return
@@ -4155,7 +4155,7 @@ func (s *Server) testWebSearch(w http.ResponseWriter, r *http.Request) {
 		backend = req.Backend
 	}
 	// Proxy is taken from the form as-is (empty = direct), so testing reflects exactly
-	// what's shown â including an intentional "clear proxy to test direct" before saving.
+	// what's shown — including an intentional "clear proxy to test direct" before saving.
 	// The masked placeholder the form shows for a saved proxy means the saved one.
 	proxy := strings.TrimSpace(req.Proxy)
 	if isMaskedSecret(proxy) {
@@ -4178,7 +4178,7 @@ func (s *Server) testWebSearch(w http.ResponseWriter, r *http.Request) {
 	// Hard cap so a slow/blocked proxy can't hang the request.
 	wall := 30 * time.Second
 	// deepseek's credentials are not in the form; they come from the currently active LLM profile. Each search also runs one
-	// model inference, so the generic 30s cap is tight â relaxed just for it. We don't pre-judge whether the profile works: this test
+	// model inference, so the generic 30s cap is tight — relaxed just for it. We don't pre-judge whether the profile works: this test
 	// exists precisely for the user to confirm, and a real failure's error below says more than any pre-check.
 	probeQuery := "test"
 	if strings.TrimSpace(backend) == deepSeekWebSearchBackend {
@@ -4222,7 +4222,7 @@ func (s *Server) mainSessions(w http.ResponseWriter, r *http.Request) {
 }
 
 // newMainSession starts a fresh main-agent conversation segment. Only the segment
-// counter advances â the task's exploration graph, assets and goal are untouched, so
+// counter advances — the task's exploration graph, assets and goal are untouched, so
 // the main agent continues over the same task with a clean transcript/context.
 func (s *Server) newMainSession(w http.ResponseWriter, r *http.Request) {
 	t := s.m.ResolveTask(r.URL.Query().Get("task"))
@@ -4253,7 +4253,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Note: a paused task does not block main-agent conversations. The main-agent orchestration session is independent of the
-	// planner/worker pause; chat continues while paused (pausing only aborts the turn in flight â see control()).
+	// planner/worker pause; chat continues while paused (pausing only aborts the turn in flight — see control()).
 	var req struct {
 		Message     string           `json:"message"`
 		Attachments []chatAttachment `json:"attachments,omitempty"` // files uploaded via method 1 (paths relative to the task work dir)
@@ -4323,13 +4323,13 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 			}()
 			// emit every step (thinking/tool_use/tool_result/text/result) so the main
 			// agent session shows its work live, like worker/planner. The final answer
-			// is the captured "result" step â no separate reply emit (would duplicate).
+			// is the captured "result" step — no separate reply emit (would duplicate).
 			emit := func(rec db.Activity) {
 				rec.MainSeg = segPtr
 				s.engine.emitActivity(t, rec)
 			}
 			maTaskID, _ := strconv.ParseInt(t.ID, 10, 64)
-			resume := func() { s.reviveTask(t) } // set_goals added a goal â pulls the task back to running
+			resume := func() { s.reviveTask(t) } // set_goals added a goal → pulls the task back to running
 			// Splice the list of [absolute paths] of uploaded attachments into the message sent to the agent; it uses them to open files via Read/Bash.
 			// taskDir = the agent's working directory (CWD), consistent with chatUpload's target dir and ensureRunDir.
 			taskDir := filepath.Join(s.m.dir, "tasks", t.ID)
@@ -4459,7 +4459,7 @@ func (s *Server) getReport(w http.ResponseWriter, r *http.Request) {
 	//
 	// A lookup failure is not an absence. The report is generated on demand and can
 	// be retried, so a failed read fails loudly instead of rendering every finding as
-	// "not assessed" â a database error must never become a claim about the finding.
+	// "not assessed" — a database error must never become a claim about the finding.
 	quality := map[int64]db.FindingQuality{} // pg-less deployments have no standalone rows at all
 	if s.m.pg != nil {
 		var err error
