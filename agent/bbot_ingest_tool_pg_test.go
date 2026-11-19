@@ -32,6 +32,9 @@ func TestIngestBbotScopeSplit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := d.Assets().CreateTaskInterceptRule(task.ID, "allow", "exact_domain", "bbot-ingest.example.com", "test target", true); err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		_ = d.DeleteTask(task.ID)
 		_, _ = d.Exec(`DELETE FROM assets WHERE domain IN ('bbot-ingest.example.com','bbot-intel.example.net','bbot-nodist.example.net','bbot-planted.example.org')`)

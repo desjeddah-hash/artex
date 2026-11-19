@@ -11,6 +11,13 @@ import (
 	actool "github.com/Autumn-27/norma/tool"
 )
 
+func addScanIngestAllowRule(t *testing.T, d *db.DB, taskID int64, kind, pattern string) {
+	t.Helper()
+	if _, err := d.Assets().CreateTaskInterceptRule(taskID, "allow", kind, pattern, "test scanner target", true); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // ingest_scan_output (PG): an nmap file writes its assets through insert_assets
 // and its facts through record_fact; a second ingestion of the same file keeps
 // the counters, adds no asset row and no fact; a path leaving the working
@@ -22,6 +29,9 @@ func TestIngestScanOutputPG(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	addScanIngestAllowRule(t, d, task.ID, "cidr", "198.51.100.0/24")
+	addScanIngestAllowRule(t, d, task.ID, "cidr", "2001:db8::/32")
+	addScanIngestAllowRule(t, d, task.ID, "exact_domain", "scan-ingest.example.com")
 	const assetsWhere = `ip IN ('198.51.100.77','2001:db8::77') OR domain LIKE '%scan-ingest.example.com' OR url LIKE '%198.51.100.77%' OR url LIKE '%2001:db8::77%'`
 	t.Cleanup(func() {
 		_ = d.DeleteTask(task.ID)
@@ -127,6 +137,8 @@ func TestIngestScanOutputJSONPG(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	addScanIngestAllowRule(t, d, task.ID, "exact_domain", "scan-ingest.example.com")
+	addScanIngestAllowRule(t, d, task.ID, "cidr", "198.51.100.0/24")
 	const assetsWhere = `domain LIKE '%scan-ingest.example.com' OR url LIKE '%scan-ingest.example.com%'`
 	t.Cleanup(func() {
 		_ = d.DeleteTask(task.ID)
@@ -210,6 +222,8 @@ func TestIngestScanOutputUserinfoPG(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	addScanIngestAllowRule(t, d, task.ID, "exact_domain", "scan-ingest.example.com")
+	addScanIngestAllowRule(t, d, task.ID, "cidr", "198.51.100.0/24")
 	const assetsWhere = `domain LIKE '%scan-ingest.example.com' OR url LIKE '%scan-ingest.example.com%'`
 	t.Cleanup(func() {
 		_ = d.DeleteTask(task.ID)

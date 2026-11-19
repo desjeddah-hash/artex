@@ -20,7 +20,7 @@ import (
 	"github.com/Autumn-27/norma/llm"
 )
 
-// Target-gate opt-in flag, pins and decisions over the real mux and the real
+// Target-gate default, pins and decisions over the real mux and the real
 // auth. The server context is already cancelled, so a task created through
 // these tests never starts an engine.
 
@@ -150,8 +150,8 @@ func TestTargetGateLiveSwitch(t *testing.T) {
 
 const gateTestGoal = "Probe the lab target at http://127.0.0.1:9/v1 for unauthenticated data exposure; record one record as evidence and stop."
 
-// The flag is set on the existing create path. Omitted means off, and a task
-// loaded from the database keeps what was stored.
+// The flag is set on the existing create path. Omitted means on for app-created
+// tasks, and a task loaded from the database keeps what was stored.
 func TestCreateTaskAcceptsTargetGate(t *testing.T) {
 	g := newGateServer(t)
 	for _, tc := range []struct {
@@ -160,7 +160,7 @@ func TestCreateTaskAcceptsTargetGate(t *testing.T) {
 	}{
 		{`,"target_gate":true`, true},
 		{`,"target_gate":false`, false},
-		{``, false},
+		{``, true},
 	} {
 		code, body := g.do(t, "POST", "/api/tasks", `{"description":"gate create","goal":"`+gateTestGoal+`"`+tc.field+`}`)
 		id, _ := body["id"].(string)
@@ -223,8 +223,8 @@ func (g *gateServer) checkSpawnedChild(t *testing.T, childID string, gate bool, 
 
 // A task spawned through spawn_task takes the target gate of the calling scope
 // (D23) and, from a gated task, that task's block rules (D24). It never takes
-// pins or allow rules, and parent_ref plays no part. A gate-off caller and a
-// call with no scope create the child as before: gate off, no rules.
+// pins or allow rules, and parent_ref plays no part. A gate-off caller creates
+// an explicitly open child; a call with no scope uses the default-on gate.
 func TestSpawnedTaskInheritsGateFromCaller(t *testing.T) {
 	g := newGateServer(t)
 	on := true
@@ -269,7 +269,7 @@ func TestSpawnedTaskInheritsGateFromCaller(t *testing.T) {
 		{"gated conversation", scoped(gatedChat), "", true, nil},
 		{"gate-off task", scoped(open.targetScope(0)), "", false, nil},
 		{"gate-off task, parent_ref names a gated task", scoped(open.targetScope(0)), gated.ID, false, nil},
-		{"no scope, parent_ref names a gated task", context.Background(), gated.ID, false, nil},
+		{"no scope, parent_ref names a gated task", context.Background(), gated.ID, true, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			args := map[string]any{"description": "spawned child", "goal": gateTestGoal}

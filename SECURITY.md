@@ -14,7 +14,7 @@ Notes:
 
 **Do not open a public issue for a security vulnerability.**
 
-Sign in to GitHub and use the [private vulnerability report form](https://github.com/BaaRai/ARTEX/security/advisories/new). You can also reach it from the repository's **Security and quality** tab under **Advisories** → **Report a vulnerability**. This is the only reporting channel.
+Sign in to GitHub and use the [private vulnerability report form](https://github.com/BaaRai/ARTEX/security/advisories/new). You can also reach it from the repository's **Security and quality** tab under **Advisories** â **Report a vulnerability**. This is the only reporting channel.
 
 Please include:
 - A description of the vulnerability and its expected impact.
@@ -37,11 +37,11 @@ Testing, scanning, or exploiting third-party systems without explicit authorizat
 
 ## Trusted Inputs and Scope Enforcement
 
-ARTEX trusts the scanner output file (`output.json`) that `ingest_bbot` reads. The `scope_distance` field carried on scope-relevant events is the scanner's own verdict and is ingested as-is: an event the scanner marks in scope (per its own `-s`/`--no-scope` configuration) is treated as in scope without being re-checked against ARTEX's rule set.
+ARTEX trusts the scanner output file (`output.json`) that `ingest_bbot` reads. The `scope_distance` field carried on scope-relevant events remains the scanner's verdict for classifying events as in-scope; the importer does not independently derive that distance from the task goal.
 
-The enforced trust boundary for asset insertion is `insert_assets`, which runs every candidate through `EvaluateAssetGate`: block rules always apply, and a task allow-list is enforced when one is configured. A rejected candidate is returned as an `insertion forbidden` error for that asset and is never inserted, so it cannot reach task execution. `in_scope_not_asset` in the `ingest_bbot` result is a different count: in-scope events that are not asset types (findings and the like).
+Before `ingest_bbot` or `ingest_scan_output` registers asset candidates, it requires at least one enabled task allow rule. If a file contains asset candidates and the task has no enabled allow rule, ingestion stops before writing those assets or the file's facts. Each candidate then passes through `insert_assets` and `EvaluateAssetGate`: block rules always apply, and an enabled allow rule must match. `in_scope_not_asset` in the `ingest_bbot` result is a different count: in-scope events that are not asset types (findings and the like).
 
-Accepted gap: when a task has no allow-list, there is no allow rule to apply (block rules still run), and any host carried on an in-scope event that is not blocked enters the graph as an asset. Operators who rely on the scanner's scope rules alone should configure an allow-list per task, or review `output.json` before feeding it to ARTEX. Cross-checking ingested events against ARTEX's own rule set would change what existing scanner configurations mean for those operators, so it is treated as a deliberate design question (see #317), not an accepted vulnerability.
+The target-approval gate defaults on for tasks created through the application; explicitly setting `target_gate:false` disables it, and existing task settings are not changed. The gate only intercepts destinations that its target parser recognizes in declared tool inputs. It does not prevent a subprocess from making an undeclared network connection, so use OS/container-level egress controls when that boundary matters.
 
 ## What to Expect
 
@@ -59,9 +59,9 @@ This is an open-source project maintained on a best-effort basis. We aim to ackn
 
 We will explain the reason, for example:
 - It is not a security vulnerability but intended behavior.
-- It is outside ARTEX’s scope (e.g., an issue in an LLM provider, PostgreSQL, Docker, or a browser).
+- It is outside ARTEXâs scope (e.g., an issue in an LLM provider, PostgreSQL, Docker, or a browser).
 - There is insufficient information to reproduce it.
-- The report only states that “the tool can be misused” without identifying a specific technical flaw in ARTEX.
+- The report only states that âthe tool can be misusedâ without identifying a specific technical flaw in ARTEX.
 
 Where appropriate, we may convert the report into a public hardening issue or feature request.
 
@@ -73,7 +73,7 @@ The following are generally **not** considered ARTEX security vulnerabilities:
 - Large-scale DoS/DDoS or resource-exhaustion attacks.
 - Social engineering targeting maintainers or users.
 - Issues that exist only in third-party dependencies and do not affect ARTEX.
-- Reports that “ARTEX can be used to attack systems” when the user has valid authorization — this is the nature of a penetration-testing tool, not a vulnerability.
+- Reports that âARTEX can be used to attack systemsâ when the user has valid authorization â this is the nature of a penetration-testing tool, not a vulnerability.
 - Missing headers or hardening configuration without a concrete security impact.
 
 ## Safe Harbor

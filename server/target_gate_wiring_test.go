@@ -255,7 +255,7 @@ func TestTaskGuardsRunTargetGate(t *testing.T) {
 		return block, msg
 	}
 
-	// Gate off, the default: both guards pass the call and write nothing.
+	// Gate explicitly off: both guards pass the call and write nothing.
 	for name, hooks := range map[string]interface {
 		PreToolUse(context.Context, string, []byte) (bool, string, []byte)
 	}{"worker": task.Guard.Hooks(), "planner": task.TargetGuard.Hooks()} {

@@ -16,7 +16,7 @@ and every finding stays bound to the assets and HTTP traffic that prove it.
 [![CI](https://github.com/BaaRai/ARTEX/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/BaaRai/ARTEX/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/github/go-mod/go-version/BaaRai/ARTEX?color=6b34db)](go.mod)
 
-[Quick start](#quick-start) · [Screenshots](#screenshots) · [How it works](#how-it-works) · [Install](#installation) · [Configuration](#configuration) · [Security](SECURITY.md)
+[Quick start](#quick-start) Â· [Screenshots](#screenshots) Â· [How it works](#how-it-works) Â· [Install](#installation) Â· [Configuration](#configuration) Â· [Security](SECURITY.md)
 
 </div>
 
@@ -64,9 +64,9 @@ docker compose logs artex | grep "Setup token"
 
 ## Multi-provider workers
 
-In **System → LLM**, configure the profiles you want to use. In **System → Settings**,
+In **System â LLM**, configure the profiles you want to use. In **System â Settings**,
 set the concurrent worker count to at least **2** before starting a task (the count
-applies to subsequently started tasks). In **System → Agents → Worker**, leave the
+applies to subsequently started tasks). In **System â Agents â Worker**, leave the
 model set to follow the task; a fixed Worker model takes precedence over rotation.
 
 When creating a task, select both profiles in **LLM config chain**, arrange their
@@ -139,7 +139,7 @@ graphs linked by anchors:
 
 ```mermaid
 flowchart LR
-  subgraph EG["Exploration graph (per-task · advance chain)"]
+  subgraph EG["Exploration graph (per-task Â· advance chain)"]
     direction TB
     G["goal"]
     I1["intent A"]
@@ -151,7 +151,7 @@ flowchart LR
     F1 -->|derived_from| I2
     I2 -->|proves| FD
   end
-  subgraph AG["Asset graph (globally shared · source of truth)"]
+  subgraph AG["Asset graph (globally shared Â· source of truth)"]
     direction TB
     RD["root_domain"]
     SD["subdomain"]
@@ -199,7 +199,7 @@ sequenceDiagram
 
 ### Durable attack chains, shared worker memory
 
-Real attack chains are multi-step and ordered (find an injection → get credentials → move
+Real attack chains are multi-step and ordered (find an injection â get credentials â move
 laterally). The planner keeps a **todolist retained per task across wake-ups**: it records the
 chain once, then dispatches the next step only when its prerequisites are satisfied by facts.
 
@@ -222,7 +222,7 @@ worker remains confined to the intent it claimed.
   <details>
   <summary>Using the traffic capture extension</summary>
 
-  - Load the unpacked extension from `extension/` (Chrome/Edge: Developer Mode → Load unpacked);
+  - Load the unpacked extension from `extension/` (Chrome/Edge: Developer Mode â Load unpacked);
   - In the popup, set your ARTEX URL and token, then press **Start capture** on the tab you are
     browsing;
   - Use the site normally; text requests/responses are batched to `POST /api/traffic/ingest`
@@ -254,8 +254,10 @@ worker remains confined to the intent it claimed.
   construction (`["git","push"]` covers `git push --force`, but `git -C /repo push` matches
   nothing). Each approval records who decided: `human`, `rule`, `model` or `system`.
 - **Scope and target gate**: scope rows define the coverage denominator; assets outside the
-  declared scope are not explored. The target gate (off by default, API-only) can refuse
-  destinations that were not approved.
+  declared scope are not explored. New tasks created through the app start with target approval on;
+  explicitly set `target_gate:false` to turn it off. The gate can refuse unapproved destinations,
+  but does not constrain undeclared network connections made by subprocesses. Scanner-result
+  imports require an enabled per-task allow rule before registering assets.
 - **Budgets**: `ARTEX_TASK_BUDGET_TOKENS` / `ARTEX_TASK_BUDGET_TURNS` cap a whole task (planner and
   workers); `ARTEX_INTENT_BUDGET_TOKENS` / `ARTEX_INTENT_BUDGET_TURNS` cap one worker run. Near the
   limit the task enters a forced wrap-up; a worker is not started when the remaining budget cannot
@@ -275,7 +277,7 @@ worker remains confined to the intent it claimed.
 - **Coverage ledger and force-directed coverage graph**: in-scope assets are highlighted as tested
   or untested, with linked intents, facts and findings per node.
 - **Company-scoped asset graph**: shared across tasks, deduplicated by the program, with
-  domain → subdomain → service → endpoint containment.
+  domain â subdomain â service â endpoint containment.
 - **ScopeSentry sync**: pull asset data from a
   [ScopeSentry](https://github.com/Autumn-27/ScopeSentry) instance by project or task, merged by
   company scope into the asset graph for agents to explore.
@@ -285,7 +287,7 @@ worker remains confined to the intent it claimed.
 
   - On the **Asset Sync** page, enter the ScopeSentry address and API key;
   - Choose the targets and asset types by **project** or **task** (domains / subdomains / IPs /
-    ports / sites / endpoints…);
+    ports / sites / endpointsâ¦);
   - Import: rows are merged by company asset scope and become part of the asset graph.
 
   </details>
@@ -300,7 +302,7 @@ worker remains confined to the intent it claimed.
 - **MCP servers, skills, memory and a workspace**: extend the agent with remote tools and reusable
   prompt/playbook material.
 - **Web search**: the agent's search tool uses Brave, Tavily or the opt-in Keenable backend,
-  configured in **System → Settings** with the key encrypted at rest; search can also egress
+  configured in **System â Settings** with the key encrypted at rest; search can also egress
   through its own proxy.
 - **Single binary**: the Next.js UI is embedded with `go:embed`; PostgreSQL is the only external
   dependency.
@@ -320,8 +322,8 @@ cd ARTEX
 ./install.sh
 ```
 
-The script detects or installs Docker, then offers **① all-Docker** (writes `.env`, runs
-`docker compose up -d --build`) or **② local build and run** (generates `config.json`, builds the
+The script detects or installs Docker, then offers **â  all-Docker** (writes `.env`, runs
+`docker compose up -d --build`) or **â¡ local build and run** (generates `config.json`, builds the
 embedded binary, starts it).
 
 Open **http://localhost:8787**; `/setup` asks for the one-time setup token printed at startup
@@ -338,11 +340,11 @@ git clone https://github.com/BaaRai/ARTEX.git
 cd ARTEX
 cp .env.example .env            # set POSTGRES_PASSWORD, optionally ANTHROPIC_API_KEY
 docker compose up -d --build
-# → http://localhost:8787
+# â http://localhost:8787
 ```
 
 The image includes a scanner toolchain (`nmap`, `nuclei`, `httpx`, `katana`, `ffuf`, `dalfox`,
-`sqlmap`, `ripgrep`, `curl`, `npm`, …); `./skills` and `./data` are persisted via bind mounts.
+`sqlmap`, `ripgrep`, `curl`, `npm`, â¦); `./skills` and `./data` are persisted via bind mounts.
 
 For remote MCP you can choose `http` (Streamable HTTP) or `sse` (legacy SSE) in system settings.
 Legacy SSE servers usually establish the event stream with `GET /sse` and receive JSON-RPC over
@@ -355,7 +357,7 @@ contains `artex`, `start.sh` (`start.bat` on Windows), `skills/` and `config.exa
 
 ```bash
 cp config.example.json config.json   # fill in the database connection
-./start.sh                           # → http://localhost:8787
+./start.sh                           # â http://localhost:8787
 ```
 
 Start with `start.sh` / `start.bat`, not `./artex`: it is a daemon script that restarts the process
@@ -429,9 +431,9 @@ runtime supports it.
 (for example `https://api.openai.com/v1`).
 
 **OpenAI-compatible gateways**: any provider that serves an OpenAI-style
-`/v1/chat/completions` endpoint works through the **OpenAI** format — no dedicated format
+`/v1/chat/completions` endpoint works through the **OpenAI** format â no dedicated format
 needed. Create a profile with format **OpenAI**, set **Base URL** to the gateway's `/v1`
-root, paste the key, then click the **↻** button next to *Model* to load the provider's
+root, paste the key, then click the **â»** button next to *Model* to load the provider's
 catalog (`GET /v1/models`) and pick a model; models the provider adds later appear on the
 next refresh. For example, [NotHoly](https://notholy.com) (offensive-security models) uses
 base URL `https://api.notholy.com/v1` with an API key from its console.
@@ -614,8 +616,8 @@ cd ARTEX
 ./update.sh
 ```
 
-The script optionally `git pull`s, then offers **① Docker update** (`docker compose build artex` →
-`docker compose up -d artex`) or **② local build update** (rebuild the frontend static assets, then
+The script optionally `git pull`s, then offers **â  Docker update** (`docker compose build artex` â
+`docker compose up -d artex`) or **â¡ local build update** (rebuild the frontend static assets, then
 recompile `./artex`; restart the process for it to take effect).
 
 #### Option 2: Docker Compose (manual)
@@ -653,7 +655,7 @@ CGO_ENABLED=0 go build -tags embedui -o artex ./cmd/artex
 ## Development
 
 ```bash
-./dev.sh    # backend(:8787) + traffic proxy(:8788) + frontend next dev(:5173) → http://localhost:5173
+./dev.sh    # backend(:8787) + traffic proxy(:8788) + frontend next dev(:5173) â http://localhost:5173
 ```
 
 - Backend: `go run ./cmd/artex` (without `-tags embedui`, the frontend is not embedded)
@@ -675,7 +677,7 @@ shared todolist**.
 ```mermaid
 flowchart TB
   subgraph FE["Frontend Next.js (go:embed embedded single binary)"]
-    UI["Dashboard · Tasks · Assets · Coverage graph · Traffic · Workspace · System settings"]
+    UI["Dashboard Â· Tasks Â· Assets Â· Coverage graph Â· Traffic Â· Workspace Â· System settings"]
   end
   subgraph SRV["server (Go net/http)"]
     API["REST /api/*  JWT auth  SSE"]
@@ -685,7 +687,7 @@ flowchart TB
   subgraph AG["agent (norma SDK)"]
     GO["goals  goal decomposition + scope extraction"]
     PL["planner  the planner (sole intent generator)"]
-    WK["worker  executor ×N"]
+    WK["worker  executor ÃN"]
     MA["mainagent  human-in-the-loop"]
   end
   subgraph DB["PostgreSQL"]
@@ -696,7 +698,7 @@ flowchart TB
     PROXY["Traffic recording proxy  MITM + CA tracing"]
     GUARD["guard / intercept  tool approval gate"]
     ENR["enrich  DNS / HTTP async enrichment"]
-    EXT["MCP · skills · memory · report"]
+    EXT["MCP Â· skills Â· memory Â· report"]
   end
 
   UI -->|HTTP| API
