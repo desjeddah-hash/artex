@@ -170,7 +170,8 @@ func newTargetScopeFixture(t *testing.T) *targetScopeFixture {
 // newTask creates a task with one open goal (so the planner loop plans).
 func (f *targetScopeFixture) newTask(t *testing.T) *Task {
 	t.Helper()
-	created, err := f.m.CreateTaskWithOptions("target scope probe", "probe goal", db.TaskCreateOptions{})
+	off := false
+	created, err := f.m.CreateTaskWithOptions("target scope probe", "probe goal", db.TaskCreateOptions{TargetGate: &off})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +337,7 @@ func TestEveryAgentKindCarriesTargetScope(t *testing.T) {
 				t.Fatalf("wait bound = %v, want %v", got.scope.WaitBound, site.wait)
 			}
 			if got.scope.Enabled == nil || got.scope.Enabled() {
-				t.Fatal("the gate must be off: the task did not opt in")
+				t.Fatal("the gate must be off for this explicit-off task fixture")
 			}
 			if got.scope.Interceptor != f.m.interceptor {
 				t.Fatal("the scope does not carry the interceptor that owns the gate")
@@ -382,7 +383,7 @@ func TestFinalPlannerRoundHasZeroWait(t *testing.T) {
 	}
 }
 
-// With the gate off (the task default) the target-only hooks are a no-op: a call is
+// With the gate explicitly off on this task, the target-only hooks are a no-op: a call is
 // allowed and nothing is written — no intercept row, no audit-ring entry. The
 // control runs the same call through the task's full Guard, where a deny rule
 // blocks it and logs a row, so the rule and the row count are known to be live.

@@ -64,6 +64,11 @@ func (g *gateServer) do(t *testing.T, method, path, body string) (int, map[strin
 // approval rows when the test ends.
 func (g *gateServer) newTask(t *testing.T, opts db.TaskCreateOptions) *Task {
 	t.Helper()
+	// Keep helper-created tasks explicitly off; the HTTP create default is tested separately.
+	if opts.TargetGate == nil {
+		off := false
+		opts.TargetGate = &off
+	}
 	created, err := g.m.CreateTaskWithOptions("target gate flag", "flag, pins and decisions", opts)
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +121,7 @@ func TestTargetGateLiveSwitch(t *testing.T) {
 	task := g.newTask(t, db.TaskCreateOptions{})
 	scope := task.targetScope(intercept.DefaultTargetWaitBound)
 	if scope.Enabled == nil || scope.Enabled() {
-		t.Fatal("a new task must have the gate off")
+		t.Fatal("the fixture task must start with the gate off")
 	}
 	if scope.Interceptor != g.m.interceptor {
 		t.Fatal("the task scope does not carry the manager's interceptor")
